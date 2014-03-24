@@ -25,6 +25,7 @@ class TransactionCursor;
 class TransactionOperation;
 class LocalEnvironment;
 class LocalTransaction;
+class Compressor;
 
 //
 // The database implementation for local file access
@@ -159,6 +160,14 @@ class LocalDatabase : public Database {
     ham_status_t flush_txn_operation(LocalTransaction *txn,
                     TransactionOperation *op);
 
+    // Enables record compression for this database
+    void enable_record_compression(int algo, int level);
+
+    // Returns the compressor for compressing/uncompressing the records
+    Compressor *get_record_compressor() {
+      return (m_compressor.get());
+    }
+
   protected:
     // Copies the ham_record_t structure from |op| into |record|
     static ham_status_t copy_record(LocalDatabase *db, Transaction *txn,
@@ -225,6 +234,9 @@ class LocalDatabase : public Database {
 
     // the comparison function
     ham_compare_func_t m_cmp_func;
+
+    // The compressor; can be null
+    std::auto_ptr<Compressor> m_compressor;
 };
 
 } // namespace hamsterdb

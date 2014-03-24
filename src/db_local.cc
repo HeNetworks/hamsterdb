@@ -29,6 +29,7 @@
 #include "txn_local.h"
 #include "txn_cursor.h"
 #include "version.h"
+#include "compressor_factory.h"
 
 namespace hamsterdb {
 
@@ -1772,6 +1773,12 @@ void
 LocalDatabase::erase_me()
 {
   m_btree_index->release();
+}
+
+void
+LocalDatabase::enable_record_compression(int algo, int level)
+{
+  m_compressor.reset(CompressorFactory::create(algo, level));
 }
 
 } // namespace hamsterdb

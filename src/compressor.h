@@ -55,8 +55,16 @@ class Compressor {
     void decompress(const ham_u8_t *inp, ham_u32_t inlength,
                     ham_u32_t outlength) {
       m_arena.resize(outlength);
-
       do_decompress(inp, inlength, (ham_u8_t *)m_arena.get_ptr(), outlength);
+    }
+
+    // Decompresses |inlength| bytes of data in |inp|. |outlength| is the
+    // expected size of the decompressed data. Uses the caller's |arena|
+    // for storage.
+    void decompress(const ham_u8_t *inp, ham_u32_t inlength,
+                    ham_u32_t outlength, ByteArray *arena) {
+      arena->resize(outlength);
+      do_decompress(inp, inlength, (ham_u8_t *)arena->get_ptr(), outlength);
     }
 
     // Retrieves the compressed (or decompressed) data, including its size

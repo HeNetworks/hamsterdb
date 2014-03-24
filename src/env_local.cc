@@ -567,6 +567,8 @@ LocalEnvironment::create_db(Database **pdb, ham_u16_t dbname,
   ham_u16_t key_type = HAM_TYPE_BINARY;
   ham_u32_t key_size = HAM_KEY_SIZE_UNLIMITED;
   ham_u32_t rec_size = HAM_RECORD_SIZE_UNLIMITED;
+  ham_u32_t record_compressor = HAM_COMPRESSOR_NONE;
+  ham_u32_t record_compressor_level = HAM_DEFAULT_COMPRESSION_LEVEL;
   ham_u16_t dbi;
   std::string logdir;
 
@@ -580,12 +582,16 @@ LocalEnvironment::create_db(Database **pdb, ham_u16_t dbname,
   if (param) {
     for (; param->name; param++) {
       switch (param->name) {
-        case HAM_PARAM_RECORD_COMPRESSION:
-          ham_trace(("Record compression is only available in hamsterdb pro"));
-          return (HAM_NOT_IMPLEMENTED);
-        case HAM_PARAM_KEY_COMPRESSION:
-          ham_trace(("Key compression is only available in hamsterdb pro"));
-          return (HAM_NOT_IMPLEMENTED);
+        case HAM_PARAM_ENABLE_RECORD_COMPRESSION:
+          if (param->value > 4) {
+            ham_trace(("invalid algorithm for record compression"));
+            return (HAM_INV_PARAMETER);
+          }
+          record_compressor = (int)param->value;
+          break;
+        case HAM_PARAM_RECORD_COMPRESSION_LEVEL:
+          record_compressor_level = (int)param->value;
+          break;
         case HAM_PARAM_KEY_TYPE:
           key_type = (ham_u16_t)param->value;
           break;
@@ -640,9 +646,6 @@ LocalEnvironment::create_db(Database **pdb, ham_u16_t dbname,
     return (HAM_INV_PARAMETER);
   }
 
-  /* create a new Database object */
-  LocalDatabase *db = new LocalDatabase(this, dbname, flags);
-
   /* check if this database name is unique */
   ham_assert(m_header->get_max_databases() > 0);
   for (ham_u32_t i = 0; i < m_header->get_max_databases(); i++) {
@@ -650,7 +653,6 @@ LocalEnvironment::create_db(Database **pdb, ham_u16_t dbname,
     if (!name)
       continue;
     if (name == dbname) {
-      delete db;
       return (HAM_DATABASE_ALREADY_EXISTS);
     }
   }
@@ -664,10 +666,8 @@ LocalEnvironment::create_db(Database **pdb, ham_u16_t dbname,
       break;
     }
   }
-  if (dbi == m_header->get_max_databases()) {
-    delete db;
+  if (dbi == m_header->get_max_databases())
     return (HAM_LIMITS_REACHED);
-  }
 
   /* logging enabled? then the changeset HAS to be empty */
 #ifdef HAM_DEBUG
@@ -675,12 +675,19 @@ LocalEnvironment::create_db(Database **pdb, ham_u16_t dbname,
     ham_assert(get_changeset().is_empty());
 #endif
 
+  /* create a new Database object */
+  LocalDatabase *db = new LocalDatabase(this, dbname, flags);
+
   /* initialize the Database */
   ham_status_t st = db->create(dbi, key_type, key_size, rec_size);
   if (st) {
     delete db;
     return (st);
   }
+
+  /* enable compression? */
+  if (record_compressor)
+    db->enable_record_compression(record_compressor, record_compressor_level);
 
   mark_header_page_dirty();
 
@@ -704,6 +711,8 @@ LocalEnvironment::open_db(Database **pdb, ham_u16_t dbname,
                 ham_u32_t flags, const ham_parameter_t *param)
 {
   ham_u16_t dbi;
+  ham_u32_t record_compressor = HAM_COMPRESSOR_NONE;
+  ham_u32_t record_compressor_level = HAM_DEFAULT_COMPRESSION_LEVEL;
 
   *pdb = 0;
 
@@ -718,12 +727,16 @@ LocalEnvironment::open_db(Database **pdb, ham_u16_t dbname,
   if (param) {
     for (; param->name; param++) {
       switch (param->name) {
-        case HAM_PARAM_RECORD_COMPRESSION:
-          ham_trace(("Record compression is only available in hamsterdb pro"));
-          return (HAM_NOT_IMPLEMENTED);
-        case HAM_PARAM_KEY_COMPRESSION:
-          ham_trace(("Key compression is only available in hamsterdb pro"));
-          return (HAM_NOT_IMPLEMENTED);
+        case HAM_PARAM_ENABLE_RECORD_COMPRESSION:
+          if (param->value > 4) {
+            ham_trace(("invalid algorithm for record compression"));
+            return (HAM_INV_PARAMETER);
+          }
+          record_compressor = (int)param->value;
+          break;
+        case HAM_PARAM_RECORD_COMPRESSION_LEVEL:
+          record_compressor_level = (int)param->value;
+          break;
         default:
           ham_trace(("invalid parameter 0x%x (%d)", param->name, param->name));
           return (HAM_INV_PARAMETER);
@@ -734,9 +747,6 @@ LocalEnvironment::open_db(Database **pdb, ham_u16_t dbname,
   /* make sure that this database is not yet open */
   if (get_database_map().find(dbname) != get_database_map().end())
     return (HAM_DATABASE_ALREADY_OPEN);
-
-  /* create a new Database object */
-  LocalDatabase *db = new LocalDatabase(this, dbname, flags);
 
   ham_assert(get_device());
   ham_assert(0 != m_header->get_header_page());
@@ -751,10 +761,11 @@ LocalEnvironment::open_db(Database **pdb, ham_u16_t dbname,
       break;
   }
 
-  if (dbi == m_header->get_max_databases()) {
-    delete db;
+  if (dbi == m_header->get_max_databases())
     return (HAM_DATABASE_NOT_FOUND);
-  }
+
+  /* create a new Database object */
+  LocalDatabase *db = new LocalDatabase(this, dbname, flags);
 
   /* open the database */
   ham_status_t st = db->open(dbi);
@@ -763,6 +774,10 @@ LocalEnvironment::open_db(Database **pdb, ham_u16_t dbname,
     ham_trace(("Database could not be opened"));
     return (st);
   }
+
+  /* enable compression? */
+  if (record_compressor)
+    db->enable_record_compression(record_compressor, record_compressor_level);
 
   /*
    * on success: store the open database in the environment's list of

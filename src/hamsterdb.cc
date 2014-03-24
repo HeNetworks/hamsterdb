@@ -1001,7 +1001,7 @@ ham_db_set_compare_func(ham_db_t *hdb, ham_compare_func_t foo)
 
 ham_status_t HAM_CALLCONV
 ham_db_find(ham_db_t *hdb, ham_txn_t *htxn, ham_key_t *key,
-        ham_record_t *record, ham_u32_t flags)
+            ham_record_t *record, ham_u32_t flags)
 {
   Database *db = (Database *)hdb;
   Transaction *txn = (Transaction *)htxn;
@@ -1625,7 +1625,7 @@ ham_cursor_insert(ham_cursor_t *hcursor, ham_key_t *key, ham_record_t *record,
             "transactions"));
       return (db->set_error(HAM_INV_PARAMETER));
     }
-    if ((flags&HAM_PARTIAL)
+    if ((flags & HAM_PARTIAL)
         && (record->partial_size + record->partial_offset > record->size)) {
       ham_trace(("partial offset+size is greater than the total "
             "record size"));
