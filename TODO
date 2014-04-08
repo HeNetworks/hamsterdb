@@ -160,8 +160,37 @@ x PRO: if a compressor does not exist then ham_env_create_db should immediately
 x use linear search for PAX (see topic/linear), but improve the
     performance!
 
+x run benchmark with this:
+    -mfpmath=sse -Ofast -flto -march=native -funroll-loops
+    -> add recommendation to Performance documentation
+
 o PRO: use SIMD instructions for the linear search
-    http://openproceedings.org/EDBT/2014/paper_107.pdf
+    -> SSE2 only supports comparisons for signed integers!
+
+    x configure switch --enable-sse2: adds -msse2 to CFLAGS
+        x enable by default if `grep /proc/cpuinfo sse2` != 0
+    x need to figure out whether the CPU supports SSE/SSE2 (also on Windows)
+        http://stackoverflow.com/questions/6121792/how-to-check-if-a-cpu-supports-the-sse3-instruction-set
+    o need unittest: if sse is enabled and supported then perform an
+        sse comparison (needs abstraction for intrinsics)
+    o metrics: add flag whether sse2 is supported
+
+    o replace linear search with the SSE2 variant outlined in
+        http://schani.wordpress.com/2010/04/30/linear-vs-binary-search/
+        o for uint8:  64 keys at once
+        o for uint16: 32 keys at once
+        o for uint32: 16 keys at once
+        o for uint64: 8 keys at once
+        o for real32: 16 keys at once (k-ary search?)
+        o for real64: 8 keys at once (k-ary search?)
+
+        o binary search: uses sse2 for comparing the pivot element (and
+            its surroundings) for equality; in case of a hit: return;
+            otherwise compare to the left or to the right (on avg this will
+            require 1 additional compare, max. 2 compares)
+
+    -> k-ary search is outlined here:
+        http://openproceedings.org/EDBT/2014/paper_107.pdf
 
 o PRO: 30 day evaluation library
     x remove the ham_get_license() API - it doesn't make sense and people
@@ -206,6 +235,7 @@ o PRO: extend release-tool
     o for pro: use different file list
     o for pro: add test for --disable-compression
     o for pro: add test for --disable-encryption
+    o for pro: add test for --disable-sse2
     o for pro: generate 30 day trials for the following 3 months,
         starting at every calendar week
         o for linux (obfuscated tar-balls)
@@ -222,7 +252,6 @@ o PRO: additional stuff for the first release
         o file compatibility
         o ...
 
-<<<<<<< HEAD
     o need a database with commercial users
         o upgrade the current users
         o need a "download gate" api which verifies download links
@@ -235,10 +264,10 @@ o PRO: additional stuff for the first release
         o can download commercial files using the admin-API to verify the
             login
             o add to google analytics!
-            o use /download/commercial/<guid>/file for download; extract
+            . use /download/commercial/<guid>/file for download; extract
                 <guid>, connect to the API and verify if it's valid
 
-o PRO: admin webpage
+. PRO: admin webpage
     o database is hosted in openshift (mysql)
     o install phpmyadmin
     o create databases
@@ -295,6 +324,14 @@ o PRO: admin webpage
 
 ------------- first release of hamsterdb-pro 2.1.7 --------------------------
 
+o clean up globals; currently, many metrics and test gates are stored
+    in global variables. collect them and store them in a struct Globals
+    (globals.h).
+
+o clean up os; remove stuff from global namespace into class Os. Also
+    cache the results of the CPU feature checks in a static class member
+    (bitfield) and inline it.
+
 o QuickCheck: create a new property for testing duplicates; the key is always
         the same. The number of duplicate keys is tracked and periodically
         checked with the API. A cursor can be used to remove a specific
@@ -314,100 +351,6 @@ o insert: if HAM_HINT_APPEND is set then page splits should only create a
 o default layout: the lookup operations are relatively slow compared to PAX;
     can we somehow improve this?
     o run profiling on a read-only workload
-=======
-        x clean up the code; make it less hackish
-            x have a central authority for dealing with transactions and
-                for flushing them ("TransactionManager"
-                    -> "LocalTransactionManager" etc)
-            x commits/aborts are also routed through the TransactionManager,
-                which will do the logging (if reqd)
-            x also manages the Transaction Id
-            x TransactionManager keeps the threshold
-            x also keep track of number of committed operations
-            x ... and the consumed memory
-            x check threshold for number of committed operations
-            x check threshold for consumed memory (should be same as
-                journal buffer size)
-            x check with valgrind
-
-        x expose the new flag
-            x dotnet
-            x java
-            x ham_bench
-            x erlang
-        x add documentation to header file
-
-        x add to monster test, valgrind test, performance test
-
-    x check monster tests
-
-    x combine operations of all flushed transactions in the same changeset
-        -> we need to remove many asserts... :-/
-        x when fetching a page: give a flag kReadOnly; then do not add
-            the page to the changeset
-        x make read-only operations fetch pages in read-only mode
-            (btree_find, btree_check, BlobManager::read, others?)
-        x then combine the operations
-        x run recovery tests
-        x add to monster tests and perftests (with and without immediate flush)
-
-    x BtreeErase: remove ifdef
-
-    x allow use of Transactions without journalling/recovery
-        x implement
-        x requires a test; just make sure that the journal is not created
-        x needs documentation in header file
-        x needs monster tests
-
-    x how would a bulk update API look like??
-        -> it would allocate memory for the user, and immediately add
-            it to the txn-tree or append as a delta update.
-        -> the user specifies whether transactions are bypassed or not
-        -> the user specifies whether the data is already sorted or not
-        -> the user specifies whether existing keys are overwritten
-            or not
-
-x Make cursor cleanup logic after erase less cheesy
-    if a key is erased (remove_entry) then all cursors are uncoupled.
-    Shortly afterwards, they're coupled again for the points_to() check.
-
-x why is --enable-recovery twice as fast as --use-transactions?
-    -> mostly related to malloc/free in the rb-tree
-    x what can we do to reduce the allocations? a typical insert requires
-        three allocations (we could get down to two):
-        - node
-        - key
-        - op + record (already combined)
-        -> rb.h requires a single key; how can we re-structure? 
-        --> allocate a single structure (same as DeltaUpdate), and let the
-            TransactionTree point to this update. The TransactionNode
-            can manage a list of DeltaUpdates for the same key. As soon as
-            one DeltaUpdate is removed, the key will be provided by the
-            next update.
-            Later, the DUs can then be attached to the Btree node.
-    x the TransactionOperation structure also stores the key (one single
-        allocation!)
-    x the TransactionNode no longer stores the key but uses the one from a
-        connected TransactionOperation
-
-o QuickCheck:
-    x extend existing test with overwrite and duplicates
-    o document the various tests
-    o new test: create a database with generated configuration; use
-        insert/erase/find/close/open; use very low pagesize with large
-        key size, if possible; also use multi-page blobs
-    o boost the existing tests and create much larger sequences; no issue
-        if each test runs for an hour or more
-
-o improve the release process
-    o improve/add integration of static code analysis to release process
-        o oclint: create helper file in bin/
-            oclint $FILE -- -I ../include/ -D__STDC_CONSTANT_MACROS -D__STDC_LIMIT_MACROS -I/usr/include -I/usr/local/include -c
-            filter out P1 problems, report P2, ignore P3
-        o coverity
-    o move the critical stages up front, and the non critical ones towards
-        the end (critical: packaging, unittests, tools, samples, valgrind)
->>>>>>> Improved transaction performance by reducing memory allocations
 
 o delta updates managed in the BtreeNode
     the catch is that the actual insert operation is separated from
@@ -424,12 +367,6 @@ o delta updates managed in the BtreeNode
             -> absolutely worth the effort, about 60% are spent in memmove
         x Default
             -> also worth the effort, about 15% are spent in memmove
-
-    o perform a benchmark/profiling: random inserts vs. ascending inserts;
-        the difference should be caused by memcopy/memmove (is it?)
-        x PAX
-            -> absolutely worth the effort, about 60% are spent in memmove
-        o Default
 
     o if the deltas are merged then the page must be added to the
         changeset; invest more time in thinking about recovery and
@@ -473,35 +410,16 @@ o delta updates managed in the BtreeNode
         o then merge the remaining inserts
         o this needs lots of tests
 
-<<<<<<< HEAD
-=======
-o extend ham_bench documentation for --flush-txn-immediately
-o extend ham_bench documentation for --disable-recovery
-
->>>>>>> Improved transaction performance by reducing memory allocations
 . collect file format updates
     o PageManager state: also store m_last_blob_page_id persistently
         (try not to break backwards compatibility, though)
     o EnvHeader is completely full; add at least 8 bytes for flags + reserved
     o reserve CRC32 for each page
 
-<<<<<<< HEAD
 o QuickCheck: automatically test the recovery feature by invoking "crashes"
 
 o PRO: bulk updates
     - require delta updates
-=======
-----------------------------------
-
-- "hola" - olap functions that operate directly on the btree data
-- prefetch cache lines when searching
-- linear SIMD search -> PRO
-- encrypt the log and the environment file with AES -> PRO
-- compress the log with snappy -> PRO
-- compress the records with snappy -> PRO
-- hot backups (vacuumizes to a different file) -> PRO
-- bulk updates -> PRO
->>>>>>> Improved transaction performance by reducing memory allocations
     - give users API to allocate memory for keys/records
     - if user says that data is already sorted then do not re-sort
     - add those delta updates to the txn-trees or to the btree node,
@@ -521,6 +439,7 @@ o PRO: prefix compression for variable-length keys
         linear search for the key
 
 o PRO: CRC32-checksums (as soon as the file format is updated)
+    o SSE2 has support for a CRC32 checksum calculation
 
 o PRO: hot backups (vacuumizes to a different file)
     - copies the database file
@@ -537,6 +456,7 @@ o "hola" - olap functions that operate directly on the btree data
         http://download.java.net/jdk8/docs/api/java/util/stream/Stream.html
     o create a design
     o operations on compressed data (COUNT(), MIN(), MAX(), ...)?
+    o use async operations or futures/promises
 
 - cache-oblivious page distribution? -> PRO
     http://supertech.csail.mit.edu/cacheObliviousBTree.html

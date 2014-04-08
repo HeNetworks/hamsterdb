@@ -118,6 +118,22 @@ os_socket_recv(ham_socket_t socket, ham_u8_t *data, ham_u32_t data_size);
 extern void
 os_socket_close(ham_socket_t *socket);
 
+// Returns true if the CPU/OS supports the specified feature
+enum {
+  kCpuFeatureMMX = 0,
+  kCpuFeatureSSE,
+  kCpuFeatureSSE2,
+  kCpuFeatureSSE3,
+  kCpuFeatureSSSE3,
+  kCpuFeatureSSE41,
+  kCpuFeatureSSE42,
+  kCpuFeatureSSE4a,
+  kCpuFeatureAVX,
+  kCpuFeatureMax // delimiter
+}; 
+extern bool
+os_has_feature(int feature);
+
 } // namespace hamsterdb
 
 #endif /* HAM_OS_H__ */

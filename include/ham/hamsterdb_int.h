@@ -216,6 +216,9 @@ typedef struct ham_env_metrics_t {
   // PRO: key bytes after compression
   ham_u64_t key_bytes_after_compression;
 
+  // PRO: set to true if SSE2 is enabled
+  ham_bool_t is_sse2_enabled;
+
 } ham_env_metrics_t;
 
 /**

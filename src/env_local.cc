@@ -29,6 +29,7 @@
 #include "env_local.h"
 #include "cursor.h"
 #include "txn_cursor.h"
+#include "os.h"
 
 using namespace hamsterdb;
 
@@ -841,6 +842,8 @@ LocalEnvironment::get_metrics(ham_env_metrics_t *metrics) const
     m_journal->get_metrics(metrics);
   // and of the btrees
   BtreeIndex::get_metrics(metrics);
+  // SSE2 support enabled?
+  metrics->is_sse2_enabled = os_has_feature(kCpuFeatureSSE2);
 }
 
 ham_u64_t
