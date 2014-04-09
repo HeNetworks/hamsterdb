@@ -171,26 +171,39 @@ o PRO: use SIMD instructions for the linear search
         x enable by default if `grep /proc/cpuinfo sse2` != 0
     x need to figure out whether the CPU supports SSE/SSE2 (also on Windows)
         http://stackoverflow.com/questions/6121792/how-to-check-if-a-cpu-supports-the-sse3-instruction-set
-    o need unittest: if sse is enabled and supported then perform an
-        sse comparison (needs abstraction for intrinsics)
-    o metrics: add flag whether sse2 is supported
+    x metrics: add flag whether sse2 is supported
+    x need unittest: if sse is enabled and supported then perform an
+        sse comparison
 
-    o replace linear search with the SSE2 variant outlined in
-        http://schani.wordpress.com/2010/04/30/linear-vs-binary-search/
-        o for uint8:  64 keys at once
-        o for uint16: 32 keys at once
-        o for uint32: 16 keys at once
-        o for uint64: 8 keys at once
-        o for real32: 16 keys at once (k-ary search?)
-        o for real64: 8 keys at once (k-ary search?)
+    o look at 3rd party simd libraries:
+        https://github.com/p12tic/libsimdpp
+        https://github.com/genericsimd/generic_simd
+        C++ VectorClass library: http://www.agner.org/optimize
 
-        o binary search: uses sse2 for comparing the pivot element (and
-            its surroundings) for equality; in case of a hit: return;
-            otherwise compare to the left or to the right (on avg this will
-            require 1 additional compare, max. 2 compares)
+    o rewrite os_has_feature()
+    o metrics also return whether avx is used, not just sse2
+
+    o replace linear search with the SSE2 variant
+        x move SSE-related code to a template function in simd.h
+        o HAM_ENABLE_SSE2 should depend on sse2 header file settings
+            rename to HAM_ENABLE_SIMD
+        o depending on the available instruction set: the find function
+            calls the function in simd.h
+        o binary search loop: instead of comparing the pivot function: compare
+            a whole bunch of keys; if there's a hit then return the result, 
+            otherwise continue left/right
+            o try to use AVX, otherwise fall back to SSE2
+            o implement for all supported data types
+            o tests have to work
+
+        o if threshold is reached: continue with linear search
+            o threshold depends on supported instruction set (AVX, SSE2)
+            o then implement with SIMD
+        o Add simd library to 3rdparty
 
     -> k-ary search is outlined here:
         http://openproceedings.org/EDBT/2014/paper_107.pdf
+    o test compilation with clang
 
 o PRO: 30 day evaluation library
     x remove the ham_get_license() API - it doesn't make sense and people
@@ -235,7 +248,7 @@ o PRO: extend release-tool
     o for pro: use different file list
     o for pro: add test for --disable-compression
     o for pro: add test for --disable-encryption
-    o for pro: add test for --disable-sse2
+    o for pro: add test for --disable-simd
     o for pro: generate 30 day trials for the following 3 months,
         starting at every calendar week
         o for linux (obfuscated tar-balls)
@@ -352,6 +365,36 @@ o default layout: the lookup operations are relatively slow compared to PAX;
     can we somehow improve this?
     o run profiling on a read-only workload
 
+o find a way how to execute user's code in the btree; similar to the hola
+    core described below. we want to run analytical code in the lowest possible
+    level, running on linear key data (thus being able to apply SIMD in the
+    application)
+    -> use a cursor; if a page does not have any pending transactional updates
+        then iterate over the whole btree node (in the direction of the cursor),
+        otherwise go step by step.
+    -> also offer a c++ API w/ templates?
+    -> the user's callback/function object can then accumulate or collect
+        records, whereas the actual record data is only fetched when requested
+    -> the user's callback/function object can receive multiple keys at once
+        (really?)
+    => make this the hola core routine
+    => is this part of the "scan" API?
+    void ham_db_scan(ham_db_t *db,
+                     ham_txn_t *txn,
+                     ham_key_t *begin, // can be null
+                     ham_key_t *end, // can be null
+                     ham_processor_cb_t *processor,
+                     void *context,
+                     ham_u32_t flags);
+        -> have predefined functions: ham_hola_count()
+        -> have predefined functions: ham_hola_count_if()
+        -> have predefined functions: ham_hola_count_distinct()
+        -> have predefined functions: ham_hola_count_distinct_if()
+        -> have predefined functions: ham_hola_average()
+        -> have predefined functions: ham_hola_average_if()
+        -> have predefined functions: ham_hola_sum()
+        -> have predefined functions: ham_hola_sum_if()
+
 o delta updates managed in the BtreeNode
     the catch is that the actual insert operation is separated from
     the user's insert operation. The page will be logged and flushed,
@@ -392,6 +435,12 @@ o delta updates managed in the BtreeNode
             LSNs, but that's too much effort. We could also count the
             DUs that were flushed; if all DUs with a lsn in the range of a
             specific file were flushed then we know we're done.
+        => another idea: the DUs are not appended as pointer structures but
+            copied to the node, in a separate area at the end. this has the
+            advantage of requiring a write-lock, but it solves the 
+            whole recovery problem.
+        => another idea: do not allow DUs if logging is enabled. but this would
+            kind of defeat its purpose (mostly).
 
     o need a flag to disable DeltaUpdates
     o rename TransactionOperation to DeltaUpdate, decouple code from txn
@@ -426,16 +475,18 @@ o PRO: bulk updates
         transfer ownership of the memory
 
 o PRO: prefix compression for variable-length keys
-    - if key is appended at the end: just write the delta
-    - otherwise things get tricky, because the keys to the "right" of the
+    o only for leaf keys!? internal keys have too much "distance", and
+        the decompression would require too much time
+    o if key is appended at the end: just write the delta
+    o otherwise things get tricky, because the keys to the "right" of the
         inserted key have to be re-compressed; and in this case it is
         possible that the space will overflow
-    - when re-compressing: key size might grow or shrink, which means that
+    o when re-compressing: key size might grow or shrink, which means that
         the keys "to the right" should be rearranged as well
     ===> it really makes sense to have delta updates and bulk inserts first!!
-    - try to store a full key every Nth bytes, to avoid extensive re-compressing
-    - full keys can be further compressed with lzf or lzo
-    - key search: jumps from full key to full key; in between, there's a
+    o try to store a full key every Nth bytes, to avoid extensive re-compressing
+    o full keys can be further compressed with lzf or lzo
+    o key search: jumps from full key to full key; in between, there's a
         linear search for the key
 
 o PRO: CRC32-checksums (as soon as the file format is updated)
@@ -454,6 +505,10 @@ o "hola" - olap functions that operate directly on the btree data
     -> see wiki
     -> see java8 stream API:
         http://download.java.net/jdk8/docs/api/java/util/stream/Stream.html
+    -> see supersonic:
+        https://code.google.com/p/supersonic/
+    -> see fast bitmap indices
+        http://code.google.com/p/lemurbitmapindex/
     o create a design
     o operations on compressed data (COUNT(), MIN(), MAX(), ...)?
     o use async operations or futures/promises
