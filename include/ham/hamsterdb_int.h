@@ -216,8 +216,8 @@ typedef struct ham_env_metrics_t {
   // PRO: key bytes after compression
   ham_u64_t key_bytes_after_compression;
 
-  // PRO: set to true if SSE2 is enabled
-  ham_bool_t is_sse2_enabled;
+  // PRO: set to the max. SIMD lane width (0 if SIMD is not available)
+  int simd_lane_width;
 
 } ham_env_metrics_t;
 

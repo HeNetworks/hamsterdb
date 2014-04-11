@@ -118,21 +118,10 @@ os_socket_recv(ham_socket_t socket, ham_u8_t *data, ham_u32_t data_size);
 extern void
 os_socket_close(ham_socket_t *socket);
 
-// Returns true if the CPU/OS supports the specified feature
-enum {
-  kCpuFeatureMMX = 0,
-  kCpuFeatureSSE,
-  kCpuFeatureSSE2,
-  kCpuFeatureSSE3,
-  kCpuFeatureSSSE3,
-  kCpuFeatureSSE41,
-  kCpuFeatureSSE42,
-  kCpuFeatureSSE4a,
-  kCpuFeatureAVX,
-  kCpuFeatureMax // delimiter
-}; 
-extern bool
-os_has_feature(int feature);
+// Returns the number of 32bit integers that the CPU can process in
+// parallel (the SIMD lane width) 
+extern int
+os_get_simd_lane_width();
 
 } // namespace hamsterdb
 

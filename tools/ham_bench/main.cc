@@ -896,8 +896,8 @@ print_metrics(Metrics *metrics, Configuration *conf)
           metrics->hamster_metrics.extended_duptables);
   printf("\thamsterdb journal_bytes_flushed       %lu\n",
           metrics->hamster_metrics.journal_bytes_flushed);
-  printf("\thamsterdb is_sse2_enabled             %s\n",
-          metrics->hamster_metrics.is_sse2_enabled ? "yes" : "no");
+  printf("\thamsterdb simd_lane_width             %d\n",
+          metrics->hamster_metrics.simd_lane_width);
 }
 
 struct Callable

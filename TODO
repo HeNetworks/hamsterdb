@@ -19,13 +19,13 @@ x hamsterdb pro: compression for journal
 x hamsterdb pro: compression for records
 x hamsterdb pro: aes encryption
 x hamsterdb pro: compression for keys
+x hamsterdb: linear searches
 o hamsterdb pro: 30 day evaluation
-o hamsterdb: linear searches
 o hamsterdb pro: SIMD instructions
 
 high-level plan for 2.1.8 ..................................................
-o hamsterdb: more quickcheck tests
 o hamsterdb: upgrade libuv
+o hamsterdb: more quickcheck tests
 o hamsterdb: performance improvements for remote
 o hamsterdb: improve page splits
 o hamsterdb: delta updates
@@ -175,35 +175,39 @@ o PRO: use SIMD instructions for the linear search
     x need unittest: if sse is enabled and supported then perform an
         sse comparison
 
-    o look at 3rd party simd libraries:
-        https://github.com/p12tic/libsimdpp
-        https://github.com/genericsimd/generic_simd
-        C++ VectorClass library: http://www.agner.org/optimize
+    x https://github.com/genericsimd/generic_simd
 
-    o rewrite os_has_feature()
-    o metrics also return whether avx is used, not just sse2
+    x rewrite configure settings
+        x Add simd library to 3rdparty
+        x a generic enable/disable SIMD option
+        x rewrite os_has_feature(), should work platform-independent (ARM, PPC)
+            x do not depend on cpuid
+            x if GENERIC_H__ was included then simd is not available
+            x otherwise return lane size 4
+    x metrics should return the LANE width, not bools (default is 0)
 
     o replace linear search with the SSE2 variant
         x move SSE-related code to a template function in simd.h
-        o HAM_ENABLE_SSE2 should depend on sse2 header file settings
-            rename to HAM_ENABLE_SIMD
-        o depending on the available instruction set: the find function
-            calls the function in simd.h
+        x simd available? -> the find function calls the function in simd.h
+            x if HAM_ENABLE_SIMD is true
+            x if GENERIC_H_ is false
+            x if os_get_simd_lane_width() > 1
         o binary search loop: instead of comparing the pivot function: compare
             a whole bunch of keys; if there's a hit then return the result, 
-            otherwise continue left/right
-            o try to use AVX, otherwise fall back to SSE2
+                otherwise continue left/right
+            o use lane width as threshold/size (try to increase for SSE2)
             o implement for all supported data types
             o tests have to work
 
         o if threshold is reached: continue with linear search
             o threshold depends on supported instruction set (AVX, SSE2)
-            o then implement with SIMD
-        o Add simd library to 3rdparty
+            o then implement linear search with SIMD
 
     -> k-ary search is outlined here:
         http://openproceedings.org/EDBT/2014/paper_107.pdf
     o test compilation with clang
+    o test compilation with msvc
+    o support AVX!
 
 o PRO: 30 day evaluation library
     x remove the ham_get_license() API - it doesn't make sense and people
@@ -459,12 +463,6 @@ o delta updates managed in the BtreeNode
         o then merge the remaining inserts
         o this needs lots of tests
 
-. collect file format updates
-    o PageManager state: also store m_last_blob_page_id persistently
-        (try not to break backwards compatibility, though)
-    o EnvHeader is completely full; add at least 8 bytes for flags + reserved
-    o reserve CRC32 for each page
-
 o QuickCheck: automatically test the recovery feature by invoking "crashes"
 
 o PRO: bulk updates
@@ -488,6 +486,12 @@ o PRO: prefix compression for variable-length keys
     o full keys can be further compressed with lzf or lzo
     o key search: jumps from full key to full key; in between, there's a
         linear search for the key
+
+. collect file format updates
+    o PageManager state: also store m_last_blob_page_id persistently
+        (try not to break backwards compatibility, though)
+    o EnvHeader is completely full; add at least 8 bytes for flags + reserved
+    o reserve CRC32 for each page
 
 o PRO: CRC32-checksums (as soon as the file format is updated)
     o SSE2 has support for a CRC32 checksum calculation

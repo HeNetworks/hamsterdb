@@ -17,11 +17,11 @@
 
 namespace hamsterdb {
 
-bool
-os_has_feature(int feature)
+int
+os_get_simd_lane_width()
 {
   // only supported in hamsterdb pro
-  return (false);
+  return (0);
 }
 
 } // namespace hamsterdb
