@@ -175,22 +175,15 @@ o PRO: use SIMD instructions for the linear search
     x need unittest: if sse is enabled and supported then perform an
         sse comparison
 
-    x https://github.com/genericsimd/generic_simd
-
     x rewrite configure settings
-        x Add simd library to 3rdparty
         x a generic enable/disable SIMD option
-        x rewrite os_has_feature(), should work platform-independent (ARM, PPC)
-            x do not depend on cpuid
-            x if GENERIC_H__ was included then simd is not available
-            x otherwise return lane size 4
+        x if enabled: use avx if available; otherwise fallback to sse2
     x metrics should return the LANE width, not bools (default is 0)
 
     o replace linear search with the SSE2 variant
         x move SSE-related code to a template function in simd.h
         x simd available? -> the find function calls the function in simd.h
             x if HAM_ENABLE_SIMD is true
-            x if GENERIC_H_ is false
             x if os_get_simd_lane_width() > 1
         o binary search loop: instead of comparing the pivot function: compare
             a whole bunch of keys; if there's a hit then return the result, 
@@ -207,6 +200,7 @@ o PRO: use SIMD instructions for the linear search
         http://openproceedings.org/EDBT/2014/paper_107.pdf
     o test compilation with clang
     o test compilation with msvc
+    o sse: compare 4x4 ints in parallel (schani.blogspot.com...)
     o support AVX!
 
 o PRO: 30 day evaluation library
