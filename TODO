@@ -166,7 +166,6 @@ x run benchmark with this:
 
 o PRO: use SIMD instructions for the linear search
     -> SSE2 only supports comparisons for signed integers!
-
     x configure switch --enable-sse2: adds -msse2 to CFLAGS
         x enable by default if `grep /proc/cpuinfo sse2` != 0
     x need to figure out whether the CPU supports SSE/SSE2 (also on Windows)
@@ -174,7 +173,6 @@ o PRO: use SIMD instructions for the linear search
     x metrics: add flag whether sse2 is supported
     x need unittest: if sse is enabled and supported then perform an
         sse comparison
-
     x rewrite configure settings
         x a generic enable/disable SIMD option
         x if enabled: use avx if available; otherwise fallback to sse2
@@ -185,23 +183,25 @@ o PRO: use SIMD instructions for the linear search
         x simd available? -> the find function calls the function in simd.h
             x if HAM_ENABLE_SIMD is true
             x if os_get_simd_lane_width() > 1
-        o binary search loop: instead of comparing the pivot function: compare
-            a whole bunch of keys; if there's a hit then return the result, 
-                otherwise continue left/right
-            o use lane width as threshold/size (try to increase for SSE2)
-            o implement for all supported data types
-            o tests have to work
-
         o if threshold is reached: continue with linear search
-            o threshold depends on supported instruction set (AVX, SSE2)
-            o then implement linear search with SIMD
-
-    -> k-ary search is outlined here:
-        http://openproceedings.org/EDBT/2014/paper_107.pdf
+            x threshold depends on supported instruction set (AVX, SSE2)
+==================
+            o implement linear search with SIMD (SSE - 4x4)
+                -> only for exact searches!
+                x ham_u16_t
+                x ham_u32_t
+                x float
+                o ham_u64_t  ==> does not compile
+                o double
+==================
+            o implement linear search with SIMD (AVX - 8x4?)
+            o all tests must be working
+            o add unittests for sse and avx
+    o ham_bench: add flag do disable simd
     o test compilation with clang
     o test compilation with msvc
-    o sse: compare 4x4 ints in parallel (schani.blogspot.com...)
-    o support AVX!
+    o add monster tests
+    o add performance tests for all types (no records, many finds)
 
 o PRO: 30 day evaluation library
     x remove the ham_get_license() API - it doesn't make sense and people
@@ -256,11 +256,12 @@ o PRO: additional stuff for the first release
     o needs a ChangeLog
 
     o create new documentation page (wiki) for pro (tutorial + ham_bench)
-        o journal compression
-        o record compression
-        o zlib compression
-        o aes encryption
-        o file compatibility
+        x journal compression
+        x record compression
+        x zlib compression
+        x aes encryption
+        x file compatibility
+        o simd
         o ...
 
     o need a database with commercial users
@@ -272,6 +273,7 @@ o PRO: additional stuff for the first release
         x feature matrix APL vs. closed source
         o new layout
         o daily backups of the mysql database
+        o benchmark against leveldb
         o can download commercial files using the admin-API to verify the
             login
             o add to google analytics!
