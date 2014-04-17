@@ -20,7 +20,7 @@
 
 #include <string.h>
 
-#include "protocol/protocol.h"
+#include "protobuf/protocol.h"
 #include "txn_remote.h"
 #include "env_remote.h"
 

@@ -318,67 +318,19 @@ o PRO: additional stuff for the first release
             . use /download/commercial/<guid>/file for download; extract
                 <guid>, connect to the API and verify if it's valid
 
-. PRO: admin webpage
-    o database is hosted in openshift (mysql)
-    o install phpmyadmin
-    o create databases
-        company {
-            id
-            name
-            address
-            status: lead, trial, buyer, expired
-            contract start_date
-            contract end_date
-            notes
-        }
-        user {
-            company-id
-            user name
-            user email
-            phone
-            notes
-        }
-        release {
-            version
-            status: trial, pro
-            release_date
-            trial start_date
-            trial end_date
-            directory-location
-        }
-        download {
-            guid
-            company-id
-            release
-        }
-    o admin webpage is secured by htaccess (has a non-standard path)
-
-    o create php models for the different tables
-    o ... and methods to overwrite/add/remove them
-    o ... and views to list/display/edit them
-
-    o dashboard
-        o number of customers
-        o number of customers which will expire in less than 1 month
-        o number of trial customers
-        o number of trial customers ordered by expire date
-
-    o can list, add, edit, remove releases
-    o can list, add, edit, remove trial customers (w/ users)
-        o can upgrade to customer
-    o has an api to verify the GUIDs
-    o daily backup of the database to the other server
-
-    . expired 30day licenses will be removed automatically from the server
-        o and from the backup server
-        o and from the database
-
 ------------- first release of hamsterdb-pro 2.1.7 --------------------------
 
-o remote code: reuse the procotol buffer objects! Constructing/destructing
-    them is expensive
-    o perform more benchmarks; currently, ham_bench remote is 10 times slower
-        than locally!
+o remote code: is currently very slow. one problem are the costs of protobuf
+    x create a new serializer, do not use protocol buffers
+    x use a different magic for the new serialization
+    x server: if this magic is encountered then process separately from
+        protobuffer
+    x client/server: implement for ham_db_insert
+    x run a benchmark
+    o rewrite all other commands
+    o configure: the client should no longer require protobuf, only the server
+
+o the mutex operations are very costly; should they be made optional?
 
 o look into hive-integration
     -> would be an interesting market with requirements for column store
@@ -440,6 +392,14 @@ o find a way how to execute user's code in the btree; similar to the hola
         -> have predefined functions: ham_hola_sum_if()
 
 o delta updates managed in the BtreeNode
+    ================================================================
+    According to vtunes, I/O is a far bigger problem than delta updates.
+    This means that async I/O should become higher priority. memmove is
+    not such a big deal (at least with PAX).
+    However, to reduce I/O it would be interesting to reduce the file size,
+    and prefix compression would help. However, prefix compression would
+    benefit a lot from delta updates...
+    ================================================================
     the catch is that the actual insert operation is separated from
     the user's insert operation. The page will be logged and flushed,
     but the update is not performed.
@@ -455,42 +415,19 @@ o delta updates managed in the BtreeNode
         x Default
             -> also worth the effort, about 15% are spent in memmove
 
-    o if the deltas are merged then the page must be added to the
-        changeset; invest more time in thinking about recovery and
-        make this water proof!!
-        -> also think about hot backups and how they can work with DUs
-        -> no clue yet on how to make this water proof.
-            the DUs are logged in the journal. As long as the DUs are not
-            flushed, the journal also must remain. But it's non-trivial
-            to figure out when the journal can be cleaned up, because the
-            DUs are not flushed in order of their lsn!
-        -> we could log the DUs separately from the journal, but this would
-            cause additional I/O and cleaning up the journal would not become
-            easier
-
-        => whenever DUs are flushed: write the lsn's of all merged DUs
-            to the log (as part of the changeset). When recovering then 
-            skip those DUs and do not re-apply them. (alternatively:
-            re-applying must be idempotent. but that sounds more complex.)
-            => the lsn of the last operation is currently stored in the
-                page; but this lsn is no longer relevant for skipping
-                operations during recovery.
-        => when to clean up the journal? we could keep track of all flushed
-            LSNs, but that's too much effort. We could also count the
-            DUs that were flushed; if all DUs with a lsn in the range of a
-            specific file were flushed then we know we're done.
-        => another idea: the DUs are not appended as pointer structures but
-            copied to the node, in a separate area at the end. this has the
-            advantage of requiring a write-lock, but it solves the 
-            whole recovery problem.
-        => another idea: do not allow DUs if logging is enabled. but this would
-            kind of defeat its purpose (mostly).
+      ===> DUs are merged when the page is flushed. This is quite often the
+            case with transactions, but combining many transactions into one
+            will help a bit. Also, if recovery is disabled then applications
+            will benefit a lot.
+            -> changes are purely local to btree_node_proxy, and do not affect
+                the journalling/logging code.
 
     o need a flag to disable DeltaUpdates
     o rename TransactionOperation to DeltaUpdate, decouple code from txn
     o totally transparent to the caller, handled in the proxy
-    o merge them when reading and flushing
-    o requires_split() takes delta updates into account
+    o merge them when reading and flushing and cursor traversal
+    o requires_split() takes delta updates into account, then
+        merge before splitting
     o ham_env_flush also flushes the DUs 
     o only add deltas to leaf nodes; internal nodes have too many read
         operations and would anyway require immediate flushes
@@ -505,9 +442,12 @@ o delta updates managed in the BtreeNode
 
 o QuickCheck: automatically test the recovery feature by invoking "crashes"
 
-o PRO: bulk updates
+o PRO: bulk updates (batched updates?)
     - require delta updates
     - give users API to allocate memory for keys/records
+        should be able to batch any kind of update; this will also be useful
+        for remote operations, because only one package is sent over the
+        network!
     - if user says that data is already sorted then do not re-sort
     - add those delta updates to the txn-trees or to the btree node,
         transfer ownership of the memory
