@@ -184,24 +184,48 @@ o PRO: use SIMD instructions for the linear search
             x if HAM_ENABLE_SIMD is true
             x if os_get_simd_lane_width() > 1
         o if threshold is reached: continue with linear search
+            x the linear search implementation is not working identically to
+                the SIMD functions; add unittest (i.e. for signed int)
+                -> no, it's ok
             x threshold depends on supported instruction set (AVX, SSE2)
-==================
-            o implement linear search with SIMD (SSE - 4x4)
+            x implement linear search with SIMD (SSE - 4x4)
                 -> only for exact searches!
                 x ham_u16_t
                 x ham_u32_t
                 x float
-                o ham_u64_t  ==> does not compile
-                o double
-==================
+                x ham_u64_t
+                x add unittests for sse
+=====================================
+currently, the SSE2 version of ham_uint32_t is a bit SLOWER than the
+regular version
+-> check with a profiler
+-> also check the linear search
+=====================================
+            x how to dispatch the function for AVX?
             o implement linear search with SIMD (AVX - 8x4?)
-            o all tests must be working
-            o add unittests for sse and avx
-    o ham_bench: add flag do disable simd
-    o test compilation with clang
+                really required?
+                o ham_u16_t
+                o ham_u32_t
+                o float
+                o ham_u64_t
+                o double
+                x add unittests for avx
+            o all monster tests must be working
+    x ham_bench: add flag to disable simd
+    x review the changes - some can maybe be ported back to hamsterdb (APL)?
+        -> find_exact!
+    x test compilation with clang
     o test compilation with msvc
     o add monster tests
-    o add performance tests for all types (no records, many finds)
+    o add performance tests for all types (no records, many finds, with
+        and without SSE)
+
+o performance question: running ham_bench with 10mio keys (uint32, no records)
+    and then performing --open --find-pct=100 -> 6.5 sec;
+    with --cache=unlimited -> 6.5 sec
+    why is there no difference? this is random access, and pages should be
+    purged frequently. disabling mmap does not make a difference (SSD!).
+    -> try with a spinning disk
 
 o PRO: 30 day evaluation library
     x remove the ham_get_license() API - it doesn't make sense and people
@@ -273,7 +297,21 @@ o PRO: additional stuff for the first release
         x feature matrix APL vs. closed source
         o new layout
         o daily backups of the mysql database
-        o benchmark against leveldb
+        o publish benchmark against leveldb (with and without SSD)
+            - each with 10 mio keys
+            o uint32, small records, random write
+            o uint32, small records, linear write
+            o uint32, small records, random read
+            o uint32, small records, linear read
+            o bin16, default records, random write (w/o compression)
+            o bin16, default records, linear write (w/o compression)
+            o bin16, default records, random read (w/o compression)
+            o bin16, default records, linear read (w/o compression)
+            o bin16, default records, random write (w/ compression)
+            o bin16, default records, linear write (w/ compression)
+            o bin16, default records, random read (w/ compression)
+            o bin16, default records, linear read (w/ compression)
+
         o can download commercial files using the admin-API to verify the
             login
             o add to google analytics!
@@ -337,6 +375,17 @@ o PRO: additional stuff for the first release
 
 ------------- first release of hamsterdb-pro 2.1.7 --------------------------
 
+o remote code: reuse the procotol buffer objects! Constructing/destructing
+    them is expensive
+    o perform more benchmarks; currently, ham_bench remote is 10 times slower
+        than locally!
+
+o look into hive-integration
+    -> would be an interesting market with requirements for column store
+        storage
+    -> how does the integration look like?
+    -> has TPC-benchmarks and other benchmarks ready
+
 o clean up globals; currently, many metrics and test gates are stored
     in global variables. collect them and store them in a struct Globals
     (globals.h).
@@ -351,11 +400,6 @@ o QuickCheck: create a new property for testing duplicates; the key is always
         duplicate, or to fetch a specific duplicate.
 
 o try not to purge pages if a cursor is attached
-
-o remote code: reuse the procotol buffer objects! Constructing/destructing
-    them is expensive
-    o perform more benchmarks; currently, ham_bench remote is 10 times slower
-        than locally!
 
 o insert: if HAM_HINT_APPEND is set then page splits should only create a
     new page, and not shifting any keys to the new sibling. only the new
@@ -485,7 +529,6 @@ o PRO: prefix compression for variable-length keys
 
 . collect file format updates
     o PageManager state: also store m_last_blob_page_id persistently
-        (try not to break backwards compatibility, though)
     o EnvHeader is completely full; add at least 8 bytes for flags + reserved
     o reserve CRC32 for each page
 

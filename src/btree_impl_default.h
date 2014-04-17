@@ -1278,6 +1278,17 @@ class DefaultNodeImpl
       return (ret);
     }
 
+    // Searches the node for the key and returns the slot of this key
+    // - only for exact matches!
+    template<typename Cmp>
+    int find_exact(ham_key_t *key, Cmp &comparator) {
+      int cmp;
+      int r = find(key, comparator, &cmp);
+      if (cmp)
+        return (-1);
+      return (r);
+    }
+
     // Returns a deep copy of the key
     void get_key(ham_u32_t slot, ByteArray *arena, ham_key_t *dest) {
       LocalDatabase *db = m_page->get_db();

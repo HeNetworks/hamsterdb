@@ -138,6 +138,10 @@ class BtreeNodeProxy
     // compare operation.
     virtual int find(ham_key_t *key, int *pcmp = 0) = 0;
 
+    // Searches the node for the |key|, but will always return -1 if
+    // an exact match was not found
+    virtual int find_exact(ham_key_t *key) = 0;
+
     // Returns the full key at the |slot|. Also resolves extended keys
     // and respects HAM_KEY_USER_ALLOC in dest->flags. Record number keys
     // are endian-translated.
@@ -415,6 +419,15 @@ class BtreeNodeProxyImpl : public BtreeNodeProxy
       }
       Comparator cmp(m_page->get_db());
       return (m_impl.find(key, cmp, pcmp ? pcmp : &dummy));
+    }
+
+    // Searches the node for the |key|, but will always return -1 if
+    // an exact match was not found
+    virtual int find_exact(ham_key_t *key) {
+      if (get_count() == 0)
+        return (-1);
+      Comparator cmp(m_page->get_db());
+      return (m_impl.find_exact(key, cmp));
     }
 
     // Returns the full key at the |slot|. Also resolves extended keys

@@ -835,6 +835,17 @@ class PaxNodeImpl
       return (m_keys.linear_search(l, r - l, key, comparator, pcmp));
     }
 
+    // Searches the node for the key and returns the slot of this key
+    // - only for exact matches!
+    template<typename Cmp>
+    int find_exact(ham_key_t *key, Cmp &comparator) {
+      int cmp;
+      int r = find(key, comparator, &cmp);
+      if (cmp)
+        return (-1);
+      return (r);
+    }
+
     // Returns a copy of a key and stores it in |dest|
     void get_key(ham_u32_t slot, ByteArray *arena, ham_key_t *dest) const {
       LocalDatabase *db = m_page->get_db();
