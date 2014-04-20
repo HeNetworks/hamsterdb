@@ -1105,6 +1105,17 @@ class PaxNodeImpl
       return (it->get_record_count());
     }
 
+    // Returns the record id
+    ham_u64_t get_record_id(ham_u32_t slot) const {
+      ham_u64_t p = *(ham_u64_t *)m_records.get_record_data(slot);
+      return (ham_db2h_offset(p));
+    }
+
+    // Sets the record id
+    void set_record_id(ham_u32_t slot, ham_u64_t ptr) {
+      m_records.set_record_id(slot, ptr);
+    }
+
     // Clears the page with zeroes and reinitializes it
     void test_clear_page() {
       // this is not yet in use
@@ -1175,16 +1186,6 @@ class PaxNodeImpl
     // Returns a pointer to the record id
     const ham_u64_t *get_record_data(ham_u32_t slot) const {
       return ((ham_u64_t *)m_records.get_record_data(slot));
-    }
-
-    // Returns the record id
-    ham_u64_t get_record_id(ham_u32_t slot) const {
-      return (ham_db2h_offset(*get_record_data(slot)));
-    }
-
-    // Sets the record id
-    void set_record_id(ham_u32_t slot, ham_u64_t ptr) {
-      m_records.set_record_id(slot, ptr);
     }
 
     // Sets the record data

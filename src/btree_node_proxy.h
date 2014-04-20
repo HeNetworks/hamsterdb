@@ -474,15 +474,13 @@ class BtreeNodeProxyImpl : public BtreeNodeProxy
     // Only for internal nodes!
     virtual ham_u64_t get_record_id(ham_u32_t slot) const {
       ham_assert(slot < get_count());
-      typename NodeImpl::Iterator it = m_impl.at(slot);
-      return (it->get_record_id());
+      return (m_impl.get_record_id(slot));
     }
 
     // Sets the record id of the key at the given |slot|
     // Only for internal nodes!
     virtual void set_record_id(ham_u32_t slot, ham_u64_t id) {
-      typename NodeImpl::Iterator it = m_impl.at(slot);
-      it->set_record_id(id);
+      m_impl.set_record_id(slot, id);
     }
 
     // High level function to remove an existing entry. Will call |erase_key|

@@ -200,6 +200,16 @@ currently, the SSE2 version of ham_uint32_t is a bit SLOWER than the
 regular version
 -> check with a profiler
 -> also check the linear search
+
+x w/o SIMD: improved binary search
+x w/o SIMD: find optimal linear search threshold
+x w/ SIMD: improve uint32 
+x w/ SIMD: improve uint16 
+o w/ SIMD: improve uint64 
+o w/ SIMD: improve float 
+o w/ SIMD: improve double 
+====>> Änderungen in APL-Version übertragen?
+x get_record ist tief verschachtelt, nicht inline
 =====================================
             x how to dispatch the function for AVX?
             o implement linear search with SIMD (AVX - 8x4?)
