@@ -427,7 +427,8 @@ o delta updates managed in the BtreeNode
 
 o architecture for a new webpage
     o pick an awesome design
-        i.e. similar to http://foundationdb.com, http://laravel.com
+        i.e. similar to http://foundationdb.com, http://laravel.com,
+        http://rethinkdb.com
     o come up with the full site structure/contents
     o pick a framework for routing and infrastructure (phalcon? laravel?)
     o page contents are written in markdown or
