@@ -113,20 +113,21 @@ RemoteDatabase::get_key_count(Transaction *htxn, ham_u32_t flags,
   RemoteEnvironment *env = get_remote_env();
   RemoteTransaction *txn = dynamic_cast<RemoteTransaction *>(htxn);
 
-  Protocol request(Protocol::DB_GET_KEY_COUNT_REQUEST);
-  request.mutable_db_get_key_count_request()->set_db_handle(get_remote_handle());
-  request.mutable_db_get_key_count_request()->set_txn_handle(txn
+  SerializedWrapper request;
+  request.id = kDbGetKeyCountRequest;
+  request.db_get_key_count_request.db_handle = get_remote_handle();
+  request.db_get_key_count_request.txn_handle = txn
             ? txn->get_remote_handle()
-            : 0);
-  request.mutable_db_get_key_count_request()->set_flags(flags);
+            : 0;
+  request.db_get_key_count_request.flags = flags;
 
-  std::auto_ptr<Protocol> reply(env->perform_request(&request));
+  SerializedWrapper reply;
+  env->perform_request(&request, &reply);
 
-  ham_assert(reply->has_db_get_key_count_reply());
+  ham_assert(reply.id == kDbGetKeyCountReply);
 
-  ham_status_t st = reply->db_get_key_count_reply().status();
-  if (!st)
-    *keycount = reply->db_get_key_count_reply().keycount();
+  ham_status_t st = reply.db_get_key_count_reply.status;
+  *keycount = reply.db_get_key_count_reply.keycount;
 
   return (st);
 }
@@ -187,8 +188,8 @@ RemoteDatabase::insert(Transaction *htxn, ham_key_t *key,
     if (reply.db_insert_reply.key.data.size == sizeof(ham_u64_t)) {
       ham_assert(key->data != 0);
       ham_assert(key->size == sizeof(ham_u64_t));
-      memcpy(key->data, &reply.db_insert_reply.key.data.value,
-            sizeof(ham_u64_t));
+      memcpy(key->data, reply.db_insert_reply.key.data.value,
+                sizeof(ham_u64_t));
     }
   }
 

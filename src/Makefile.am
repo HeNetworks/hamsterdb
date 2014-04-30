@@ -1,6 +1,7 @@
 
+SUBDIRS  = protoserde
 if ENABLE_REMOTE
-SUBDIRS = protobuf server
+SUBDIRS += protobuf server
 endif # ENABLE_REMOTE
 
 lib_LTLIBRARIES = libhamsterdb.la

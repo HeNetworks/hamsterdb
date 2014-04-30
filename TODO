@@ -328,6 +328,17 @@ o remote code: is currently very slow. one problem are the costs of protobuf
     x client/server: implement for ham_db_insert
     x run a benchmark
     o rewrite all other commands
+        begin
+        commit
+        abort
+        cursor_create
+        cursor_clone
+        cursor_close
+        cursor_insert
+        cursor_erase
+        cursor_find
+        cursor_get_record_count
+        cursor_overwrite
     o configure: the client should no longer require protobuf, only the server
 
 o the mutex operations are very costly; should they be made optional?
