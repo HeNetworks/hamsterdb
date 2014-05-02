@@ -93,7 +93,7 @@ static void
 complex_journal_test(int library)
 {
   ham_parameter_t params[] = {
-          {HAM_PARAM_ENABLE_JOURNAL_COMPRESSION, library},
+          {HAM_PARAM_JOURNAL_COMPRESSION, library},
           {0, 0}
   };
   ham_db_t *m_db;
@@ -165,7 +165,7 @@ TEST_CASE("Compression/LzfJournalTest", "")
 TEST_CASE("Compression/partialTest", "")
 {
   ham_parameter_t params[] = {
-          {HAM_PARAM_ENABLE_RECORD_COMPRESSION, HAM_COMPRESSOR_ZLIB},
+          {HAM_PARAM_RECORD_COMPRESSION, HAM_COMPRESSOR_ZLIB},
           {0, 0}
   };
   ham_db_t *db;
@@ -196,7 +196,7 @@ static void
 simple_record_test(int library)
 {
   ham_parameter_t params[] = {
-          {HAM_PARAM_ENABLE_RECORD_COMPRESSION, library},
+          {HAM_PARAM_RECORD_COMPRESSION, library},
           {0, 0}
   };
   ham_db_t *m_db;

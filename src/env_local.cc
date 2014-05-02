@@ -582,15 +582,12 @@ LocalEnvironment::create_db(Database **pdb, ham_u16_t dbname,
   if (param) {
     for (; param->name; param++) {
       switch (param->name) {
-        case HAM_PARAM_ENABLE_RECORD_COMPRESSION:
+        case HAM_PARAM_RECORD_COMPRESSION:
           if (param->value > 4) {
             ham_trace(("invalid algorithm for record compression"));
             return (HAM_INV_PARAMETER);
           }
           record_compressor = (int)param->value;
-          break;
-        case HAM_PARAM_RECORD_COMPRESSION_LEVEL:
-          record_compressor_level = (int)param->value;
           break;
         case HAM_PARAM_KEY_TYPE:
           key_type = (ham_u16_t)param->value;
@@ -727,15 +724,12 @@ LocalEnvironment::open_db(Database **pdb, ham_u16_t dbname,
   if (param) {
     for (; param->name; param++) {
       switch (param->name) {
-        case HAM_PARAM_ENABLE_RECORD_COMPRESSION:
+        case HAM_PARAM_RECORD_COMPRESSION:
           if (param->value > 4) {
             ham_trace(("invalid algorithm for record compression"));
             return (HAM_INV_PARAMETER);
           }
           record_compressor = (int)param->value;
-          break;
-        case HAM_PARAM_RECORD_COMPRESSION_LEVEL:
-          record_compressor_level = (int)param->value;
           break;
         default:
           ham_trace(("invalid parameter 0x%x (%d)", param->name, param->name));

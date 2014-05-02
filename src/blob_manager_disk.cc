@@ -49,8 +49,6 @@ DiskBlobManager::do_allocate(LocalDatabase *db, ham_record_t *record,
     }
   }
 
-  m_blob_total_allocated++;
-
   PBlobHeader blob_header;
   ham_u32_t alloc_size = sizeof(PBlobHeader) + record_size;
 

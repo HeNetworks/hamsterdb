@@ -25,8 +25,6 @@ ham_u64_t
 InMemoryBlobManager::do_allocate(LocalDatabase *db, ham_record_t *record,
             ham_u32_t flags)
 {
-  m_blob_total_allocated++;
-
   void *record_data = record->data;
   ham_u32_t record_size = record->size;
   ham_u32_t original_size = record->size;
